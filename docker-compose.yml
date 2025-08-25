@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: leadflow-scraper
     ports:
-      - "3002:3002"
+      - "4002:3002"
     volumes:
       - ./:/app   # for live reload in dev
     environment:
