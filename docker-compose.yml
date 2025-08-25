@@ -1,34 +1,15 @@
-# Use a slim Python base
-FROM python:3.11-slim
+version: "3.8"
 
-# Avoid prompts, speed up pip, make logs unbuffered
-ENV PIP_NO_CACHE_DIR=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    VENV_PATH=/opt/venv
-
-# System deps (add git/curl/etc if you need)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create and activate venv, and put it on PATH
-RUN python -m venv ${VENV_PATH}
-ENV PATH="${VENV_PATH}/bin:$PATH"
-
-# Workdir
-WORKDIR /app
-
-# Copy requirements first for better caching and install
-COPY requirements.txt /app/requirements.txt
-# If you want auto-reload, make sure uvicorn[standard] or watchfiles/watchgod is in requirements.txt
-RUN pip install --upgrade pip && pip install -r requirements.txt
-
-# Copy the rest of your source
-COPY . /app
-
-# Expose the app port
-EXPOSE 3002
-
-# Default command runs your launcher
-CMD ["python", "run.py"]
+services:
+  leadflow-scraper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: leadflow-scraper
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./:/app   # for live reload in dev
+    environment:
+      - PYTHONPATH=/app
+    restart: unless-stopped
