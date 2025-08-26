@@ -1,6 +1,8 @@
 import os
 import pandas as pd
+import shutil
 from typing import Dict, Any, Optional
+from pathlib import Path
 from ..config.email_config import EmailConfig
 from ..utils.csv_reader import CSVReader
 from ..utils.email_sender_util import EmailSenderUtil
@@ -64,6 +66,9 @@ class EmailSenderService:
                 campaign_id=campaign_id
             )
             
+            # Clean up the downloaded file and folder after successful email sending
+            cleanup_result = self.cleanup_campaign_files(campaign_id)
+            
             return {
                 "status": "success",
                 "message": f"Successfully sent {results['total_sent']} emails, {results['total_failed']} failed",
@@ -83,7 +88,8 @@ class EmailSenderService:
                         "next_position": end_position,
                         "emails_per_day": emails_per_day,
                         "has_more": end_position < total_rows
-                    }
+                    },
+                    "cleanup": cleanup_result
                 }
             }
             
@@ -91,6 +97,57 @@ class EmailSenderService:
             return {
                 "status": "error",
                 "message": f"Failed to send emails: {str(e)}",
+                "data": {
+                    "campaign_id": campaign_id,
+                    "error": str(e)
+                }
+            }
+    
+    def cleanup_campaign_files(self, campaign_id: str) -> Dict[str, Any]:
+        """
+        Remove the downloaded file and folder for a campaign after email sending is completed
+        
+        Args:
+            campaign_id: The campaign ID (Outscraper task ID)
+            
+        Returns:
+            Dictionary containing cleanup status and details
+        """
+        try:
+            # Construct the task folder path
+            task_folder = Path("app/data") / f"task_{campaign_id}"
+            
+            if not task_folder.exists():
+                return {
+                    "status": "skipped",
+                    "message": f"Task folder {task_folder} does not exist",
+                    "data": {
+                        "campaign_id": campaign_id,
+                        "folder_path": str(task_folder),
+                        "files_removed": 0
+                    }
+                }
+            
+            # Count files before removal
+            files_count = len(list(task_folder.glob("*")))
+            
+            # Remove the entire folder and its contents
+            shutil.rmtree(task_folder)
+            
+            return {
+                "status": "success",
+                "message": f"Successfully cleaned up {files_count} files from task folder",
+                "data": {
+                    "campaign_id": campaign_id,
+                    "folder_path": str(task_folder),
+                    "files_removed": files_count
+                }
+            }
+            
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Failed to cleanup campaign files: {str(e)}",
                 "data": {
                     "campaign_id": campaign_id,
                     "error": str(e)

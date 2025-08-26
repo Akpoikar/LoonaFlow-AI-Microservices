@@ -210,7 +210,8 @@ async def background_send_emails(task_id: str, request: SendEmailRequest):
                 "failed_emails": result["data"]["failed_emails"],
                 "pagination": result["data"]["pagination"],
                 "details": result["data"]["details"]
-            }
+            },
+            "cleanup": result["data"].get("cleanup", {})
         }
         
         tasks[task_id]["status"] = "completed"
@@ -480,5 +481,19 @@ async def download_file_by_url(file_url: str, task_id: Optional[str] = None):
         
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class CleanupResponse(BaseModel):
+    status: str
+    message: str
+    data: dict
+
+@app.delete("/api/campaigns/{campaign_id}/cleanup", response_model=CleanupResponse)
+async def cleanup_campaign_files(campaign_id: str):
+    """Manually cleanup downloaded files and folder for a specific campaign"""
+    try:
+        cleanup_result = email_sender_service.cleanup_campaign_files(campaign_id)
+        return CleanupResponse(**cleanup_result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
